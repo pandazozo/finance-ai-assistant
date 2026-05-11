@@ -1,6 +1,6 @@
 import { Opportunity, Anomaly, ReviewReport } from './mockData';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://finance-ai-assistant-production.up.railway.app';
 
 interface ApiResponse<T> {
   data?: T;
