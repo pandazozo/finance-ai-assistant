@@ -12,7 +12,7 @@ def get_stock_data():
     anomalies = []
     
     try:
-        url = "http://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f12,f14&cb=jQuery&_=1"
+        url = "http://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=50&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f12,f14&cb=jQuery&_=1"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=10) as response:
             text = response.read().decode('utf-8')
@@ -20,16 +20,17 @@ def get_stock_data():
             data = json.loads(text)
             
             if data.get('data') and data['data'].get('diff'):
-                for item in data['data']['diff'][:10]:
+                for item in data['data']['diff']:
                     change = float(item.get('f3', 0) or 0)
                     if item.get('f2') and item.get('f12') and item.get('f14'):
-                        opportunities.append({
-                            "id": f"opp_{item['f12']}",
-                            "topic": item['f14'],
-                            "topicDescription": f"{item['f14']} 涨幅 {change:.2f}%",
-                            "heatIndex": int(min(abs(change) * 5, 100))
-                        })
-                        if abs(change) > 5:
+                        if len(opportunities) < 5:
+                            opportunities.append({
+                                "id": f"opp_{item['f12']}",
+                                "topic": item['f14'],
+                                "topicDescription": f"{item['f14']} 涨幅 {change:.2f}%",
+                                "heatIndex": int(min(abs(change) * 5, 100))
+                            })
+                        if abs(change) > 3 and len(anomalies) < 10:
                             anomalies.append({
                                 "id": f"anomaly_{item['f12']}",
                                 "stockName": item['f14'],
@@ -41,7 +42,7 @@ def get_stock_data():
         print(f"获取数据失败: {e}")
         opportunities = [{"id": "fallback", "topic": "数据获取中", "topicDescription": "请稍后刷新", "heatIndex": 50}]
     
-    return {"opportunities": opportunities[:5], "anomalies": anomalies[:10]}
+    return {"opportunities": opportunities, "anomalies": anomalies}
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
