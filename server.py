@@ -49,11 +49,12 @@ def get_stock_data():
         with urllib.request.urlopen(gainers_req, timeout=10) as response:
             text = response.read().decode('gbk', errors='ignore')
             
-            for line in text.strip().split('\n'):
-                if '=' in line:
-                    code_start = line.find('list=') + 5
-                    code_part = line[code_start:line.find('=')]
-                    raw_code = code_part.strip()
+            lines = text.strip().split('\n')
+            codes_list = ["sh600519", "sh688981", "sh601398", "sz000300", "sz002594", "sz300059"]
+            
+            for i, line in enumerate(lines):
+                if '=' in line and i < len(codes_list):
+                    raw_code = codes_list[i]
                     parts = line.split('"')[1].split(',')
                     if len(parts) > 4:
                         try:
@@ -117,7 +118,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "relevance": 0.9
                 })
             
-            desc = "A股交投活跃，" + "、".join([s['name'] for s in top_gainers[:3]]) + "等个股表现强势"
+            desc = "A股交投活跃，" + "、".join([s['stockName'] for s in top_gainers[:3]]) + "等个股表现强势"
             
             opportunities = [{
                 "id": "opp_1",
