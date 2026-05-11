@@ -1,6 +1,11 @@
 {
   "netlify": {
     "authToken": "nfp_MWBPAFxVh2aimaoYeYhZVuTdYaXj9Wwub0b0",
-    "siteId": "39ac09af-c6d8-453f-b572-5395a47ecc70"
+    "siteId": "17700ca4-52f6-4147-816a-da482627ea86",
+    "siteName": "illustrious-bonbon-069326",
+    "siteUrl": "https://illustrious-bonbon-069326.netlify.app",
+    "deployHook": "https://api.netlify.com/hooks/github",
+    "githubRepo": "pandazozo/finance-ai-assistant",
+    "githubBranch": "main"
   }
 }
