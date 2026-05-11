@@ -1,23 +1,70 @@
-import { Opportunity, Anomaly, ReviewReport, mockOpportunities, mockAnomalies, mockReviewReport } from './mockData';
+import { Opportunity, Anomaly, ReviewReport } from './mockData';
+
+const API_BASE_URL = 'http://localhost:8000';
+
+interface ApiResponse<T> {
+  data?: T;
+  error?: string;
+}
+
+async function fetchApi<T>(endpoint: string): Promise<ApiResponse<T>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    console.warn(`API call failed, using mock data: ${error}`);
+    return { error: String(error) };
+  }
+}
 
 export const dataService = {
   async getOpportunities(): Promise<Opportunity[]> {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    const result = await fetchApi<Opportunity[]>('/api/opportunities');
+    if (result.data) {
+      return result.data;
+    }
+    
+    const { mockOpportunities } = await import('./mockData');
     return mockOpportunities;
   },
 
   async getAnomalies(): Promise<Anomaly[]> {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    const result = await fetchApi<Anomaly[]>('/api/anomalies');
+    if (result.data) {
+      return result.data;
+    }
+    
+    const { mockAnomalies } = await import('./mockData');
     return mockAnomalies;
   },
 
   async getReviewReport(): Promise<ReviewReport> {
-    await new Promise(resolve => setTimeout(resolve, 400));
+    const result = await fetchApi<ReviewReport>('/api/review');
+    if (result.data) {
+      return result.data;
+    }
+    
+    const { mockReviewReport } = await import('./mockData');
     return mockReviewReport;
   },
 
   async searchStocks(keyword: string): Promise<{ code: string; name: string }[]> {
-    await new Promise(resolve => setTimeout(resolve, 150));
+    const result = await fetchApi<{ code: string; name: string }[]>(`/api/search?keyword=${encodeURIComponent(keyword)}`);
+    if (result.data) {
+      return result.data;
+    }
+    
     const allStocks = [
       { code: '300750', name: '宁德时代' },
       { code: '688981', name: '中芯国际' },
