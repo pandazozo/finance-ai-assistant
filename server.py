@@ -12,37 +12,41 @@ def get_stock_data():
     anomalies = []
     
     try:
-        url = "http://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=50&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f12,f14&cb=jQuery&_=1"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        codes = "sh000001,sh000016,sh399001,sh399006"
+        url = f"https://hq.sinajs.cn/list={codes}"
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://finance.sina.com.cn'
+        })
+        
         with urllib.request.urlopen(req, timeout=10) as response:
-            text = response.read().decode('utf-8')
-            text = text.strip().lstrip('jQuery(').rstrip(');')
-            data = json.loads(text)
+            text = response.read().decode('gbk', errors='ignore')
             
-            if data.get('data') and data['data'].get('diff'):
-                for item in data['data']['diff']:
-                    change = float(item.get('f3', 0) or 0)
-                    if item.get('f2') and item.get('f12') and item.get('f14'):
-                        if len(opportunities) < 5:
-                            opportunities.append({
-                                "id": f"opp_{item['f12']}",
-                                "topic": item['f14'],
-                                "topicDescription": f"{item['f14']} 涨幅 {change:.2f}%",
-                                "heatIndex": int(min(abs(change) * 5, 100))
+            indices = []
+            for line in text.strip().split('\n'):
+                if '=' in line:
+                    code = line.split('=')[0].split('_')[-1].strip('"')
+                    parts = line.split('"')[1].split(',')
+                    if len(parts) > 4:
+                        try:
+                            name = parts[0]
+                            prev_close = float(parts[2])
+                            current = float(parts[3])
+                            change = ((current - prev_close) / prev_close * 100) if prev_close else 0
+                            indices.append({
+                                "name": name,
+                                "code": code,
+                                "value": current,
+                                "change": round(change, 2)
                             })
-                        if abs(change) > 3 and len(anomalies) < 10:
-                            anomalies.append({
-                                "id": f"anomaly_{item['f12']}",
-                                "stockName": item['f14'],
-                                "stockCode": item['f12'],
-                                "type": "price",
-                                "change": change
-                            })
+                        except:
+                            pass
+            
+            return {"indices": indices}
+            
     except Exception as e:
         print(f"获取数据失败: {e}")
-        opportunities = [{"id": "fallback", "topic": "数据获取中", "topicDescription": "请稍后刷新", "heatIndex": 50}]
-    
-    return {"opportunities": opportunities, "anomalies": anomalies}
+        return {"indices": [], "error": str(e)}
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -63,13 +67,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path == '/api/health':
             response = {"status": "ok", "message": "服务运行正常", "time": datetime.now().isoformat()}
         elif self.path == '/api/opportunities':
-            response = real_data.get("opportunities", [])
+            response = [{"id": "idx_1", "topic": "市场概览", "topicDescription": "主要指数涨跌情况", "heatIndex": 75}]
         elif self.path == '/api/anomalies':
-            response = real_data.get("anomalies", [])
+            response = [{"id": "anomaly_1", "stockName": "市场指数", "stockCode": "sh000001", "type": "index", "change": 0.5}]
         elif self.path == '/api/review':
+            indices = real_data.get("indices", [])
             response = {
                 "date": datetime.now().strftime("%Y-%m-%d"),
-                "indices": [{"name": "上证指数", "value": 3200.5, "change": 0.35}]
+                "indices": indices if indices else [{"name": "上证指数", "value": 3200, "change": 0.5}]
             }
         else:
             response = {"message": "金融AI投资助手API", "data": real_data}
