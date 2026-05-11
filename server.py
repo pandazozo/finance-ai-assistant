@@ -40,7 +40,7 @@ def get_stock_data():
                         except:
                             pass
         
-        gainers_url = "https://hq.sinajs.cn/list=sh000001_sh000016_sh399001_sh399006_sh688981_sh600519_sh601398_sh000300"
+        gainers_url = "https://hq.sinajs.cn/list=sh600519,sh688981,sh601398,sz000300,sz002594,sz300059"
         gainers_req = urllib.request.Request(gainers_url, headers={
             'User-Agent': 'Mozilla/5.0',
             'Referer': 'https://finance.sina.com.cn'
@@ -51,7 +51,9 @@ def get_stock_data():
             
             for line in text.strip().split('\n'):
                 if '=' in line:
-                    raw_code = line.split('_')[-1].split('=')[0].strip('"')
+                    code_start = line.find('list=') + 5
+                    code_part = line[code_start:line.find('=')]
+                    raw_code = code_part.strip()
                     parts = line.split('"')[1].split(',')
                     if len(parts) > 4:
                         try:
@@ -102,51 +104,82 @@ class Handler(http.server.BaseHTTPRequestHandler):
         real_data = get_stock_data()
         indices = real_data.get("indices", [])
         top_gainers = real_data.get("top_gainers", [])
-        top_losers = real_data.get("top_losers", [])
         
         if self.path == '/api/health':
             response = {"status": "ok", "message": "服务运行正常", "time": datetime.now().isoformat()}
         elif self.path == '/api/opportunities':
-            opportunities = []
-            for idx, stock in enumerate(top_gainers[:5]):
-                opportunities.append({
-                    "id": f"opp_{stock['stockCode']}",
-                    "topic": stock['stockName'],
-                    "topicDescription": f"{stock['stockName']} 涨幅 {stock['change']:.2f}%，今日表现强势",
-                    "heatIndex": int(min(abs(stock['change']) * 5, 100))
+            stock_list = []
+            for stock in top_gainers:
+                stock_list.append({
+                    "code": stock['stockCode'],
+                    "name": stock['stockName'],
+                    "change": stock['change'],
+                    "relevance": 0.9
                 })
-            if not opportunities:
-                opportunities = [{"id": "opp_1", "topic": "市场活跃", "topicDescription": "市场交投活跃，关注热点板块", "heatIndex": 75}]
+            
+            desc = "A股交投活跃，" + "、".join([s['name'] for s in top_gainers[:3]]) + "等个股表现强势"
+            
+            opportunities = [{
+                "id": "opp_1",
+                "topic": "市场活跃",
+                "topicDescription": desc,
+                "heatIndex": 85,
+                "score": 4.2,
+                "stocks": stock_list,
+                "news": [
+                    {"id": "n1", "title": "A股交投活跃，上证指数上涨", "source": "财经网", "time": "刚刚", "summary": "今日A股市场整体表现强势，各大指数普遍上涨"}
+                ],
+                "drivers": ["市场情绪回暖", "资金流入明显"],
+                "updatedAt": "刚刚"
+            }]
             response = opportunities
         elif self.path == '/api/anomalies':
             anomalies = []
-            for stock in top_gainers[:5]:
-                if abs(stock['change']) > 2:
+            for stock in top_gainers:
+                if abs(stock['change']) > 1:
                     anomalies.append({
                         "id": f"anomaly_{stock['stockCode']}",
                         "stockName": stock['stockName'],
                         "stockCode": stock['stockCode'],
                         "type": "price",
-                        "change": stock['change']
+                        "change": stock['change'],
+                        "time": datetime.now().strftime('%H:%M:%S'),
+                        "newsCount": 1,
+                        "news": [
+                            {"id": "an1", "title": f"{stock['stockName']}今日表现强势", "source": "实时资讯", "time": "刚刚", "summary": ""}
+                        ],
+                        "aiInsight": f"{stock['stockName']}今日涨幅{stock['change']:.2f}%，表现强势",
+                        "hasNews": True
                     })
             if not anomalies and indices:
-                for idx in indices[:3]:
-                    if abs(idx['change']) > 0.5:
+                for idx in indices[:2]:
+                    if abs(idx['change']) > 0.3:
                         anomalies.append({
                             "id": f"anomaly_{idx['code']}",
                             "stockName": idx['name'],
                             "stockCode": idx['code'],
                             "type": "index",
-                            "change": idx['change']
+                            "change": idx['change'],
+                            "time": datetime.now().strftime('%H:%M:%S'),
+                            "newsCount": 0,
+                            "news": [],
+                            "aiInsight": f"{idx['name']}今日变动{idx['change']:.2f}%",
+                            "hasNews": False
                         })
             response = anomalies
         elif self.path == '/api/review':
             response = {
                 "date": datetime.now().strftime("%Y-%m-%d"),
-                "indices": indices if indices else [{"name": "上证指数", "value": 3200, "change": 0.5}]
+                "indices": [{"name": idx['name'], "value": idx['value'], "change": idx['change']} for idx in indices],
+                "hotSectors": [
+                    {"name": "金融", "change": 2.5, "driver": "市场情绪回暖", "leaders": ["贵州茅台", "工商银行"]}
+                ],
+                "outlook": {
+                    "opportunities": ["市场情绪回暖，关注强势板块"],
+                    "risks": []
+                },
+                "portfolio": []
             }
-        elif self.path == '/api/all':
-            response = real_data
         else:
             response = {"message": "金融AI投资助手API", "data": real_data}
         
