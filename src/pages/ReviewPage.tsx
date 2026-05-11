@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Share2 } from 'lucide-react';
+import { Calendar, Share2, RefreshCw } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import { ReviewReport } from '@/services/mockData';
 import Header from '@/components/layout/Header';
@@ -8,13 +8,21 @@ import ReviewReportComponent from '@/components/review/ReviewReportComponent';
 export default function ReviewPage() {
   const [report, setReport] = useState<ReviewReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchReport = async () => {
+    const data = await dataService.getReviewReport();
+    setReport(data);
+    setLoading(false);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchReport();
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
   useEffect(() => {
-    const fetchReport = async () => {
-      const data = await dataService.getReviewReport();
-      setReport(data);
-      setLoading(false);
-    };
     fetchReport();
   }, []);
 
@@ -42,12 +50,22 @@ export default function ReviewPage() {
         title="智能复盘" 
         showSearch={false}
         rightElement={
-          <button 
-            onClick={handleShare}
-            className="w-9 h-9 rounded-full bg-bg-card flex items-center justify-center active:bg-white/10"
-          >
-            <Share2 size={16} className="text-text-secondary" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleRefresh}
+              className={`w-9 h-9 rounded-full bg-bg-card flex items-center justify-center active:bg-white/10 transition-colors ${
+                refreshing ? 'animate-spin' : ''
+              }`}
+            >
+              <RefreshCw size={16} className="text-text-secondary" />
+            </button>
+            <button 
+              onClick={handleShare}
+              className="w-9 h-9 rounded-full bg-bg-card flex items-center justify-center active:bg-white/10"
+            >
+              <Share2 size={16} className="text-text-secondary" />
+            </button>
+          </div>
         }
       />
 
