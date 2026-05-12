@@ -169,7 +169,7 @@ def search_stocks(keyword):
             keyword_lower in stock["code"] or
             keyword_lower in stock["name"].lower().replace(" ", "")):
             results.append(stock)
-    if not results and len(keyword) >= 2:
+    if not results and len(keyword) >= 1:
         for stock in COMMON_STOCKS[:5]:
             results.append(stock)
     return results[:10]
@@ -236,8 +236,8 @@ def calculate_risk_coefficient(risk_preference):
     if not risk_preference:
         return 1.0
     
-    high = risk_preference.high if risk_preference.high else 40
-    low = risk_preference.low if risk_preference.low else 25
+    high = risk_preference.high if risk_preference.high is not None else 40
+    low = risk_preference.low if risk_preference.low is not None else 25
     
     coefficient = 1.0 + (high - low) * 0.005
     coefficient = max(0.7, min(1.4, coefficient))
@@ -341,11 +341,20 @@ async def get_ai_conclusion(request: AIConclusionRequest):
         }
     else:
         name = clean_code
+        risk_coefficient = calculate_risk_coefficient(risk_preference)
+        preference_label = ""
+        if risk_preference:
+            if risk_preference.high > 60:
+                preference_label = "（进取型）"
+            elif risk_preference.low > 40:
+                preference_label = "（稳健型）"
+            else:
+                preference_label = "（均衡型）"
         conclusion = {
             "level": 0, "label": "暂无数据", "score": 50,
             "explanation": "暂时无法获取该股票数据，请稍后重试",
-            "riskPreferenceLabel": "",
-            "riskCoefficient": 1.0,
+            "riskPreferenceLabel": preference_label,
+            "riskCoefficient": round(risk_coefficient, 2),
             "signals": [],
             "riskTips": "市场有风险，投资需谨慎"
         }
