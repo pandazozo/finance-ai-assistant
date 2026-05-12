@@ -9,9 +9,9 @@
 3. 配置环境变量（如需要）
 4. 自动部署完成！
 
-### 前端部署 (Vercel)
+### 前端部署 (Netlify)
 
-1. 访问 [Vercel](https://vercel.com/)
+1. 访问 [Netlify](https://netlify.com/)
 2. 导入 GitHub 仓库
 3. 自动部署完成！
 
@@ -36,7 +36,9 @@
 
 **输出目录：** `dist`
 
-**框架：** Vite + React
+**框架：** Vite
+
+**配置文件：** `netlify.toml` (已存在)
 
 ---
 
@@ -44,7 +46,7 @@
 
 部署成功后，你将获得：
 - 后端API地址: `https://your-backend.railway.app`
-- 前端地址: `https://your-app.vercel.app`
+- 前端地址: `https://your-app.netlify.app`
 
 ---
 

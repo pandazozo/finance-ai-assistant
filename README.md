@@ -52,6 +52,9 @@ npm run dev
 
 ### 部署
 
+- **后端:** Railway (Python FastAPI)
+- **前端:** Netlify (React + Vite)
+
 详细部署指南见 [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ## 📚 文档

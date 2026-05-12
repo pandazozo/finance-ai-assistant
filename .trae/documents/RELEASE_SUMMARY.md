@@ -58,8 +58,8 @@
 - 端口: 8000
 - 健康检查: `/api/health`
 
-### 前端部署 (Vercel)
-配置文件: [vercel.json](vercel.json)
+### 前端部署 (Netlify)
+配置文件: [netlify.toml](netlify.toml) (已存在)
 - 构建命令: `npm run build`
 - 输出目录: `dist`
 - SPA路由重写
@@ -90,9 +90,9 @@ fb99001 - chore: 添加部署配置和README更新
 4. 选择 `finance-ai-assistant` 仓库
 5. 等待自动部署完成
 
-### 2. 部署到 Vercel (前端)
-1. 访问 https://vercel.com/
-2. 点击 "New Project"
+### 2. 部署到 Netlify (前端)
+1. 访问 https://netlify.com/
+2. 点击 "Add new site" → "Import an existing project"
 3. 选择 `finance-ai-assistant` 仓库
 4. 等待自动部署完成
 
