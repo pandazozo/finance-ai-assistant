@@ -96,6 +96,44 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
     
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
+        
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        
+        try:
+            body = json.loads(post_data) if post_data else {}
+        except:
+            body = {}
+        
+        if self.path.startswith('/api/v1/stocks/ai-conclusion'):
+            code = body.get('code', '')
+            name = '贵州茅台' if code in ['600519', 'sh600519'] else '中芯国际' if code in ['688981'] else '未知'
+            level = 3 if code in ['600519', 'sh600519', '601398'] else -3
+            label = '推荐' if level > 0 else '谨慎'
+            score = 78 if level > 0 else 42
+            signals = [
+                {"type": "技术面", "signal": "突破均线", "score": 20},
+                {"type": "资金面", "signal": "资金流入", "score": 15}
+            ]
+            conclusion = {
+                "level": level, "label": label, "score": score,
+                "explanation": f"{name}当前走势{'较强' if level > 0 else '偏弱'}，建议{'关注' if level > 0 else '谨慎'}",
+                "signals": signals, "riskTips": "市场有风险，投资需谨慎"
+            }
+            response = {"code": 0, "message": "success", "data": {
+                "code": code, "name": name, "conclusion": conclusion,
+                "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }}
+        else:
+            response = {"code": 404, "message": "Not Found"}
+        
+        self.wfile.write(json.dumps(response, ensure_ascii=False).encode('utf-8'))
+    
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -165,11 +203,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 {"type": "技术面", "signal": "突破均线", "score": 20},
                 {"type": "资金面", "signal": "资金流入", "score": 15}
             ]
-            riskTips = "风险偏好适中，建议控制仓位"
             conclusion = {
                 "level": level, "label": label, "score": score,
                 "explanation": f"{name}今日表现强势，建议关注",
-                "signals": signals, "riskTips": riskTips
+                "signals": signals, "riskTips": "风险偏好适中，建议控制仓位"
             }
             response = {"code": 0, "message": "success", "data": {
                 "code": code, "name": name, "conclusion": conclusion,
