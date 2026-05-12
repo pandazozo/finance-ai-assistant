@@ -1,10 +1,16 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 import akshare as ak
 import time
 import os
+
+# Phase 2: LLM服务集成
+try:
+    from llm_service import llm_service
+except ImportError:
+    llm_service = None
 
 app = FastAPI(title="金融AI投资助手 API", version="2.0.0")
 
@@ -182,6 +188,12 @@ class RiskPreference(BaseModel):
 class AIConclusionRequest(BaseModel):
     code: str
     riskPreference: RiskPreference = None
+
+# Phase 2: AnalysisRequest模型
+class AnalysisRequest(BaseModel):
+    code: str
+    riskPreference: RiskPreference = None
+    includeNews: bool = False
 
 @app.get("/api/health")
 async def health_check():
@@ -497,6 +509,77 @@ async def get_review():
             "risks": ["注意高位股票回调风险"] if any(s['change'] > 5 for s in top_gainers) else []
         },
         "portfolio": []
+    }
+
+# Phase 2: /api/v1/stocks/analysis 接口
+@app.post("/api/v1/stocks/analysis")
+async def get_stock_analysis(request: AnalysisRequest):
+    """
+    LLM增强分析接口
+    - 优先使用LLM生成
+    - 不可用时降级到规则引擎
+    """
+    code = request.code
+    if not code:
+        raise HTTPException(status_code=400, detail="缺少code参数")
+    
+    # 风险偏好标签
+    risk_pref = request.riskPreference
+    risk_label = "均衡型"
+    if risk_pref:
+        if risk_pref.high > 60:
+            risk_label = "进取型"
+        elif risk_pref.low > 60:
+            risk_label = "稳健型"
+    
+    # 获取股票行情
+    stock_data = get_stock_quote(code)
+    price = 0.0
+    change = 0.0
+    volume = 0.0
+    stock_name = code
+    
+    if stock_data and stock_data['current'] > 0:
+        price = stock_data['current']
+        prev_close = stock_data['prev_close']
+        change = round(((price - prev_close) / prev_close * 100), 2) if prev_close else 0
+        volume = stock_data['volume']
+        stock_name = stock_data['name']
+    
+    # 调用LLM服务
+    if llm_service:
+        analysis_result = llm_service.generate_analysis(
+            stock_name=stock_name,
+            stock_code=code,
+            price=price,
+            change=change,
+            volume=volume,
+            risk_preference_label=risk_label
+        )
+    else:
+        from llm_service import LLMService
+        fallback_service = LLMService()
+        analysis_result = fallback_service.generate_analysis(
+            stock_name=stock_name,
+            stock_code=code,
+            price=price,
+            change=change,
+            volume=volume,
+            risk_preference_label=risk_label
+        )
+    
+    return {
+        "code": 0,
+        "data": {
+            "stockCode": code,
+            "stockName": stock_name,
+            "analysis": analysis_result.get("analysis"),
+            "source": analysis_result.get("source"),
+            "fallback": analysis_result.get("fallback"),
+            "message": analysis_result.get("message"),
+            "newsImpact": 0,
+            "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
     }
 
 if __name__ == "__main__":
