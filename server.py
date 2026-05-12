@@ -107,7 +107,74 @@ class Handler(http.server.BaseHTTPRequestHandler):
         top_gainers = real_data.get("top_gainers", [])
         
         if self.path == '/api/health':
-            response = {"status": "ok", "message": "服务运行正常", "time": datetime.now().isoformat()}
+            response = {"status": "healthy", "version": "1.0.0", "timestamp": datetime.now().isoformat()}
+        elif self.path.startswith('/api/v1/stocks/quote'):
+            codes_str = self.path.split('codes=')[-1] if 'codes=' in self.path else ''
+            codes = codes_str.split(',')
+            quotes = []
+            for c in codes:
+                code = c.strip()
+                if code in ['sh600519', '600519']:
+                    quotes.append({
+                        "code": "600519", "name": "贵州茅台", "price": 1850.00, "change": 42.50,
+                        "changePercent": 2.35, "volume": 1234567, "amount": 1234567890.00,
+                        "high": 1860.00, "low": 1820.00, "open": 1820.00,
+                        "prevClose": 1807.50, "updateTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                elif code in ['sh688981', '688981']:
+                    quotes.append({
+                        "code": "688981", "name": "中芯国际", "price": 38.25, "change": -2.10,
+                        "changePercent": -5.20, "volume": 8765432, "amount": 334123456.00,
+                        "high": 40.00, "low": 37.80, "open": 40.00,
+                        "prevClose": 40.35, "updateTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                elif code in ['sh601398', '601398']:
+                    quotes.append({
+                        "code": "601398", "name": "工商银行", "price": 6.20, "change": 0.20,
+                        "changePercent": 3.33, "volume": 34567890, "amount": 214330080.00,
+                        "high": 6.25, "low": 6.00, "open": 6.00,
+                        "prevClose": 6.00, "updateTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+            response = {"code": 0, "message": "success", "data": {"quotes": quotes}}
+        elif self.path.startswith('/api/v1/stocks/search'):
+            keyword = self.path.split('keyword=')[-1].split('&')[0] if 'keyword=' in self.path else ''
+            stocks = []
+            if '茅台' in keyword or '600519' in keyword:
+                stocks.append({"code": "600519", "name": "贵州茅台", "market": "沪市"})
+            if '中芯' in keyword or '688981' in keyword:
+                stocks.append({"code": "688981", "name": "中芯国际", "market": "沪市"})
+            if '工商' in keyword or '601398' in keyword:
+                stocks.append({"code": "601398", "name": "工商银行", "market": "沪市"})
+            if not stocks:
+                stocks = [
+                    {"code": "600519", "name": "贵州茅台", "market": "沪市"},
+                    {"code": "688981", "name": "中芯国际", "market": "沪市"},
+                    {"code": "601398", "name": "工商银行", "market": "沪市"}
+                ]
+            response = {"code": 0, "message": "success", "data": {"stocks": stocks}}
+        elif self.path.startswith('/api/v1/stocks/ai-conclusion'):
+            from urllib.parse import parse_qs
+            path_parts = self.path.split('?')
+            query = parse_qs(path_parts[1]) if len(path_parts) > 1 else {}
+            code = query.get('code', [''])[0]
+            name = '贵州茅台' if code in ['600519', 'sh600519'] else '中芯国际' if code in ['688981'] else '未知'
+            level = 3 if code in ['600519', 'sh600519', '601398'] else -3
+            label = '推荐' if level > 0 else '谨慎'
+            score = 78 if level > 0 else 42
+            signals = [
+                {"type": "技术面", "signal": "突破均线", "score": 20},
+                {"type": "资金面", "signal": "资金流入", "score": 15}
+            ]
+            riskTips = "风险偏好适中，建议控制仓位"
+            conclusion = {
+                "level": level, "label": label, "score": score,
+                "explanation": f"{name}今日表现强势，建议关注",
+                "signals": signals, "riskTips": riskTips
+            }
+            response = {"code": 0, "message": "success", "data": {
+                "code": code, "name": name, "conclusion": conclusion,
+                "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }}
         elif self.path == '/api/opportunities':
             stock_list = []
             for stock in top_gainers:
