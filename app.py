@@ -582,6 +582,42 @@ async def get_stock_analysis(request: AnalysisRequest):
         }
     }
 
+# Phase 2.2: /api/v1/stocks/news 接口
+try:
+    from news_service import news_service
+except ImportError:
+    news_service = None
+
+@app.get("/api/v1/stocks/news")
+async def get_stock_news(code: str = Query(...), limit: int = Query(10)):
+    """
+    获取股票相关资讯（带权重评分）
+    """
+    if not code:
+        raise HTTPException(status_code=400, detail="缺少code参数")
+
+    stock_name = ""
+    stock_data = get_stock_quote(code)
+    if stock_data and stock_data.get("name"):
+        stock_name = stock_data["name"]
+
+    if news_service:
+        news_list = news_service.get_news_with_impact(
+            stock_code=code,
+            stock_name=stock_name,
+            limit=limit
+        )
+    else:
+        news_list = [{"id": "n1", "title": "暂无相关资讯", "source": "系统", "time": "刚刚", "summary": "", "impactScore": 0, "isImportant": False}]
+
+    return {
+        "code": 0,
+        "data": {
+            "news": news_list,
+            "count": len(news_list)
+        }
+    }
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))

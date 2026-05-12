@@ -460,5 +460,45 @@ class TestAppConfiguration:
         assert len(middleware) > 0
 
 
+class TestNewsEndpoint:
+    """测试资讯接口"""
+
+    def test_news_missing_code(self):
+        response = client.get('/api/v1/stocks/news')
+        assert response.status_code == 422
+
+    def test_news_basic(self):
+        response = client.get('/api/v1/stocks/news?code=600519')
+        assert response.status_code == 200
+        data = response.json()
+        assert data["code"] == 0
+        assert "news" in data["data"]
+        assert "count" in data["data"]
+
+    def test_news_with_limit(self):
+        response = client.get('/api/v1/stocks/news?code=600519&limit=5')
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["count"] <= 5
+
+    def test_news_structure(self):
+        response = client.get('/api/v1/stocks/news?code=600519')
+        data = response.json()
+        for news in data["data"]["news"]:
+            assert "id" in news
+            assert "title" in news
+            assert "source" in news
+            assert "time" in news
+            assert "impactScore" in news
+            assert "isImportant" in news
+
+    def test_news_important_mark(self):
+        response = client.get('/api/v1/stocks/news?code=600519')
+        data = response.json()
+        for news in data["data"]["news"]:
+            if news["isImportant"]:
+                assert news["impactScore"] >= 80
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

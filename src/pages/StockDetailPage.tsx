@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, AlertTriangle, Sparkles, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ExternalLink, AlertTriangle, Sparkles, RefreshCw, Newspaper } from 'lucide-react';
 import { api, StockQuote, AIConclusion, RiskPreference } from '@/services/api';
 import { llmService, AnalysisResponse } from '@/services/llmService';
+import { newsService, NewsItem } from '@/services/newsService';
 import { useRiskPreference } from '@/stores';
 
 export default function StockDetailPage() {
@@ -12,6 +13,8 @@ export default function StockDetailPage() {
   const [quote, setQuote] = useState<StockQuote | null>(null);
   const [conclusion, setConclusion] = useState<AIConclusion | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResponse['data'] | null>(null);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [analysisLoading, setAnalysisLoading] = useState(false);
 
@@ -38,6 +41,25 @@ export default function StockDetailPage() {
 
     fetchData();
   }, [code, riskConfig]);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      if (!code) return;
+      setNewsLoading(true);
+      try {
+        const res = await newsService.getNews(code, 10);
+        if (res.code === 0) {
+          setNews(res.data.news);
+        }
+      } catch (err) {
+        console.error('获取资讯失败:', err);
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+
+    fetchNews();
+  }, [code]);
 
   const handleGetAnalysis = async () => {
     if (!code || analysisLoading) return;
@@ -209,6 +231,58 @@ export default function StockDetailPage() {
               </>
             )}
           </button>
+        )}
+
+        {news.length > 0 && (
+          <div className="bg-bg-card rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Newspaper className="text-primary" size={20} />
+              <h2 className="text-lg font-bold text-text-primary">相关资讯</h2>
+              <span className="text-sm text-text-secondary">({news.length})</span>
+            </div>
+            <div className="space-y-3">
+              {news.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-3 rounded-lg ${newsService.getImpactBgColor(item.impactScore)}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-text-primary text-sm font-medium flex-1">
+                      {item.title}
+                    </h3>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {item.isImportant && (
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-500 text-xs rounded">
+                          重要
+                        </span>
+                      )}
+                      <span className={`text-sm font-medium ${newsService.getImpactColor(item.impactScore)}`}>
+                        {newsService.formatImpactScore(item.impactScore)}
+                      </span>
+                    </div>
+                  </div>
+                  {item.breakdown && (
+                    <div className="mt-2 flex gap-3 text-xs text-text-secondary">
+                      <span>时效性: {item.breakdown.timeliness}</span>
+                      <span>相关性: {item.breakdown.relevance}</span>
+                      <span>权威性: {item.breakdown.authority}</span>
+                    </div>
+                  )}
+                  <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
+                    <span>{item.source}</span>
+                    <span>•</span>
+                    <span>{item.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {newsLoading && (
+          <div className="bg-bg-card rounded-lg p-4">
+            <div className="text-sm text-text-secondary mb-3">资讯加载中...</div>
+          </div>
         )}
 
         <div className="bg-bg-card rounded-lg p-4">
