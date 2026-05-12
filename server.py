@@ -3,6 +3,7 @@ import socketserver
 import json
 import os
 import urllib.request
+from urllib.parse import unquote, parse_qs
 from datetime import datetime
 
 PORT = int(os.environ.get('PORT', 8000))
@@ -175,7 +176,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     })
             response = {"code": 0, "message": "success", "data": {"quotes": quotes}}
         elif self.path.startswith('/api/v1/stocks/search'):
-            keyword = self.path.split('keyword=')[-1].split('&')[0] if 'keyword=' in self.path else ''
+            query_str = self.path.split('?')[1] if '?' in self.path else ''
+            query_params = parse_qs(query_str)
+            keyword_raw = query_params.get('keyword', [''])[0]
+            keyword = unquote(keyword_raw)
             stocks = []
             if '茅台' in keyword or '600519' in keyword:
                 stocks.append({"code": "600519", "name": "贵州茅台", "market": "沪市"})
@@ -191,10 +195,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 ]
             response = {"code": 0, "message": "success", "data": {"stocks": stocks}}
         elif self.path.startswith('/api/v1/stocks/ai-conclusion'):
-            from urllib.parse import parse_qs
-            path_parts = self.path.split('?')
-            query = parse_qs(path_parts[1]) if len(path_parts) > 1 else {}
-            code = query.get('code', [''])[0]
+            query_str = self.path.split('?')[1] if '?' in self.path else ''
+            query_params = parse_qs(query_str)
+            code = query_params.get('code', [''])[0]
             name = '贵州茅台' if code in ['600519', 'sh600519'] else '中芯国际' if code in ['688981'] else '未知'
             level = 3 if code in ['600519', 'sh600519', '601398'] else -3
             label = '推荐' if level > 0 else '谨慎'
