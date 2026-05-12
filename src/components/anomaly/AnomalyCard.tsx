@@ -1,14 +1,16 @@
 import { TrendingUp, TrendingDown, Droplets, Minus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Anomaly } from '@/services/mockData';
 import { formatChange, formatTime } from '@/utils/format';
 import { ANOMALY_LABELS } from '@/utils/constants';
 
 interface AnomalyCardProps {
   data: Anomaly;
-  onClick: () => void;
 }
 
-export default function AnomalyCard({ data, onClick }: AnomalyCardProps) {
+export default function AnomalyCard({ data }: AnomalyCardProps) {
+  const navigate = useNavigate();
+
   const getTypeIcon = () => {
     switch (data.type) {
       case 'price':
@@ -28,8 +30,8 @@ export default function AnomalyCard({ data, onClick }: AnomalyCardProps) {
   };
 
   return (
-    <div 
-      onClick={onClick}
+    <div
+      onClick={() => navigate(`/anomaly/${data.id}`)}
       className="flex items-center justify-between p-4 rounded-2xl bg-bg-card border border-white/5 cursor-pointer active:scale-[0.98] transition-all"
     >
       <div className="flex items-center gap-3">

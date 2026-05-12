@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { useAppStore } from '@/stores/useAppStore';
 import { dataService } from '@/services/dataService';
 import { Anomaly } from '@/services/mockData';
 import { AnomalyType } from '@/utils/constants';
 import Header from '@/components/layout/Header';
 import AnomalyCard from '@/components/anomaly/AnomalyCard';
-import AnomalyDetail from '@/components/anomaly/AnomalyDetail';
 import AnomalyTabs from '@/components/anomaly/AnomalyTabs';
 
 export default function AnomalyPage() {
@@ -14,7 +12,6 @@ export default function AnomalyPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<AnomalyType | 'all'>('all');
-  const { selectedAnomalyId, setSelectedAnomaly } = useAppStore();
 
   const fetchAnomalies = async () => {
     const data = await dataService.getAnomalies();
@@ -37,8 +34,6 @@ export default function AnomalyPage() {
   const filteredAnomalies = activeTab === 'all' 
     ? anomalies 
     : anomalies.filter(a => a.type === activeTab);
-
-  const selectedAnomaly = anomalies.find(a => a.id === selectedAnomalyId);
 
   return (
     <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
@@ -77,7 +72,6 @@ export default function AnomalyPage() {
               <AnomalyCard
                 key={anomaly.id}
                 data={anomaly}
-                onClick={() => setSelectedAnomaly(anomaly.id)}
               />
             ))}
 
@@ -90,13 +84,6 @@ export default function AnomalyPage() {
           </div>
         )}
       </div>
-
-      {selectedAnomaly && (
-        <AnomalyDetail
-          data={selectedAnomaly}
-          onClose={() => setSelectedAnomaly(null)}
-        />
-      )}
     </div>
   );
 }

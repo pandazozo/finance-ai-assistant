@@ -2,16 +2,13 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, Plus, TrendingUp, TrendingDown, ArrowRight, Flame, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useWatchList } from '@/stores';
-import { useAppStore } from '@/stores/useAppStore';
 import { api, StockQuote } from '@/services/api';
 import { dataService } from '@/services/dataService';
 import { Opportunity } from '@/services/mockData';
 import OpportunityCard from '@/components/opportunity/OpportunityCard';
-import OpportunityDetail from '@/components/opportunity/OpportunityDetail';
 
 export default function HomePage() {
   const { stocks } = useWatchList();
-  const { selectedOpportunityId, setSelectedOpportunity } = useAppStore();
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,8 +65,6 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [stocks]);
 
-  const selectedOpportunity = opportunities.find(o => o.id === selectedOpportunityId);
-
   return (
     <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
       <div className="flex-none p-4 border-b border-border">
@@ -109,7 +104,6 @@ export default function HomePage() {
                 <OpportunityCard
                   key={opp.id}
                   data={opp}
-                  onClick={() => setSelectedOpportunity(opp.id)}
                 />
               ))}
               {opportunities.length > 3 && (
@@ -225,12 +219,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {selectedOpportunity && (
-        <OpportunityDetail
-          data={selectedOpportunity}
-          onClose={() => setSelectedOpportunity(null)}
-        />
-      )}
     </div>
   );
 }

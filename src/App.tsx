@@ -6,6 +6,8 @@ import WatchlistPage from '@/pages/WatchlistPage';
 import StockDetailPage from '@/pages/StockDetailPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AnomalyPage from '@/pages/AnomalyPage';
+import OpportunityDetailPage from '@/pages/OpportunityDetailPage';
+import AnomalyDetailPage from '@/pages/AnomalyDetailPage';
 import DisclaimerModal from '@/components/DisclaimerModal';
 
 export default function App() {
@@ -25,6 +27,8 @@ export default function App() {
               <Route path="/stock/:code" element={<StockDetailPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/anomaly" element={<AnomalyPage />} />
+              <Route path="/opportunity/:id" element={<OpportunityDetailPage />} />
+              <Route path="/anomaly/:id" element={<AnomalyDetailPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

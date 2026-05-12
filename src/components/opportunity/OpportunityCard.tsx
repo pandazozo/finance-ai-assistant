@@ -1,18 +1,19 @@
 import { Flame, Star, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Opportunity } from '@/services/mockData';
 import { formatChange, generateStars } from '@/utils/format';
 
 interface OpportunityCardProps {
   data: Opportunity;
-  onClick: () => void;
 }
 
-export default function OpportunityCard({ data, onClick }: OpportunityCardProps) {
+export default function OpportunityCard({ data }: OpportunityCardProps) {
+  const navigate = useNavigate();
   const topStocks = data.stocks.slice(0, 3);
 
   return (
     <div 
-      onClick={onClick}
+      onClick={() => navigate(`/opportunity/${data.id}`)}
       className="p-4 rounded-2xl bg-bg-card border border-white/5 cursor-pointer active:scale-[0.98] transition-all"
     >
       <div className="flex items-start justify-between mb-3">
