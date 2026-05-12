@@ -54,8 +54,15 @@ export default function OpportunityDetail({ data, onClose }: OpportunityDetailPr
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(85vh-180px)] scrollbar-hide pb-6">
-          <div className="p-4 space-y-4">
+        <div 
+          className="overflow-y-auto" 
+          style={{ 
+            maxHeight: 'calc(85vh - 160px)',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain'
+          }}
+        >
+          <div className="p-4 space-y-4 pb-6">
             <section>
               <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-3">
                 <span className="w-1 h-4 rounded-full bg-primary-light" />
