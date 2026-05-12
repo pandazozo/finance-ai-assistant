@@ -144,6 +144,14 @@ export default function StockDetailPage() {
                 <div className="text-text-primary">{quote.prevClose.toFixed(2)}</div>
               </div>
             </div>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-text-secondary">成交额</span>
+              <span className={`font-medium ${quote.change >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {quote.amount >= 100000000
+                  ? `${(quote.amount / 100000000).toFixed(2)}亿`
+                  : `${(quote.amount / 10000).toFixed(2)}万`}
+              </span>
+            </div>
           </div>
         )}
 
