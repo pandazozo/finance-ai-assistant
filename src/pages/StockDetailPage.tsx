@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, AlertTriangle, Sparkles, RefreshCw } from 'lucide-react';
 import { api, StockQuote, AIConclusion, RiskPreference } from '@/services/api';
+import { llmService, AnalysisResponse } from '@/services/llmService';
 import { useRiskPreference } from '@/stores';
 
 export default function StockDetailPage() {
@@ -10,7 +11,9 @@ export default function StockDetailPage() {
   const { config: riskConfig } = useRiskPreference();
   const [quote, setQuote] = useState<StockQuote | null>(null);
   const [conclusion, setConclusion] = useState<AIConclusion | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,6 +38,21 @@ export default function StockDetailPage() {
 
     fetchData();
   }, [code, riskConfig]);
+
+  const handleGetAnalysis = async () => {
+    if (!code || analysisLoading) return;
+    setAnalysisLoading(true);
+    try {
+      const res = await llmService.getAnalysis(code, riskConfig, false);
+      if (res.code === 0) {
+        setAnalysis(res.data);
+      }
+    } catch (err) {
+      console.error('获取AI分析失败:', err);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   const getConclusionColor = (label: string) => {
     switch (label) {
@@ -150,6 +168,47 @@ export default function StockDetailPage() {
               </div>
             )}
           </div>
+        )}
+
+        {analysis ? (
+          <div className="bg-bg-card rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-primary" size={20} />
+                <h2 className="text-lg font-bold text-text-primary">{llmService.getSourceLabel(analysis.source as 'llm' | 'rule_engine')}</h2>
+              </div>
+              {analysis.fallback && (
+                <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 text-xs rounded">
+                  规则分析
+                </span>
+              )}
+            </div>
+            <p className="text-text-primary whitespace-pre-wrap">{analysis.analysis}</p>
+            {analysis.fallback && (
+              <p className="text-sm text-text-secondary mt-3 italic">{analysis.message}</p>
+            )}
+            <div className="text-xs text-text-secondary mt-3">
+              生成时间: {analysis.generatedAt}
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleGetAnalysis}
+            disabled={analysisLoading}
+            className="w-full bg-bg-card rounded-lg p-4 flex items-center justify-center gap-2 hover:bg-bg-card/80 disabled:opacity-50"
+          >
+            {analysisLoading ? (
+              <>
+                <RefreshCw className="animate-spin text-primary" size={20} />
+                <span className="text-text-primary">AI分析中...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="text-primary" size={20} />
+                <span className="text-text-primary">获取AI深度分析</span>
+              </>
+            )}
+          </button>
         )}
 
         <div className="bg-bg-card rounded-lg p-4">
