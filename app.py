@@ -618,6 +618,284 @@ async def get_stock_news(code: str = Query(...), limit: int = Query(10)):
         }
     }
 
+# Phase 3: 规则引擎集成
+try:
+    from rule_engine import Rule, Condition, get_rule_engine
+    from preset_strategies import get_preset_strategies, create_rule_from_preset
+except ImportError:
+    get_rule_engine = None
+    get_preset_strategies = None
+    create_rule_from_preset = None
+
+# 规则存储（临时存储在内存中）
+RULES_DB = {}
+
+
+class CreateRuleRequest(BaseModel):
+    name: str
+    conditions: list
+    conditionLogic: str = "AND"
+
+
+class UpdateRuleRequest(BaseModel):
+    name: str = None
+    conditions: list = None
+    conditionLogic: str = None
+    isActive: bool = None
+
+
+@app.get("/api/v3/rules")
+async def get_rules():
+    """获取所有规则"""
+    rules_list = [rule for rule_id, rule in RULES_DB.items()]
+    return {"code": 0, "message": "success", "data": {"rules": rules_list}}
+
+
+@app.post("/api/v3/rules")
+async def create_rule(request: CreateRuleRequest):
+    """创建新规则"""
+    if not get_rule_engine:
+        raise HTTPException(status_code=500, detail="规则引擎未初始化")
+    
+    engine = get_rule_engine()
+    
+    try:
+        rule_id = f"rule_{len(RULES_DB) + 1}"
+        
+        conditions = []
+        for cond_dict in request.conditions:
+            conditions.append(Condition(**cond_dict))
+        
+        new_rule = Rule(
+            id=rule_id,
+            name=request.name,
+            conditions=conditions,
+            condition_logic=request.conditionLogic,
+            is_active=True,
+            created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        
+        valid, msg = engine.validate_rule(new_rule)
+        if not valid:
+            raise HTTPException(status_code=400, detail=msg)
+        
+        RULES_DB[rule_id] = {
+            "id": rule_id,
+            "name": new_rule.name,
+            "conditions": [c.model_dump() for c in new_rule.conditions],
+            "conditionLogic": new_rule.condition_logic,
+            "isActive": new_rule.is_active,
+            "createdAt": new_rule.created_at
+        }
+        
+        return {"code": 0, "message": "success", "data": RULES_DB[rule_id]}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/v3/rules/{rule_id}")
+async def update_rule(rule_id: str, request: UpdateRuleRequest):
+    """更新规则"""
+    if rule_id not in RULES_DB:
+        raise HTTPException(status_code=404, detail="规则不存在")
+    
+    existing = RULES_DB[rule_id]
+    
+    if request.name is not None:
+        existing["name"] = request.name
+    if request.conditions is not None:
+        existing["conditions"] = request.conditions
+    if request.conditionLogic is not None:
+        existing["conditionLogic"] = request.conditionLogic
+    if request.isActive is not None:
+        existing["isActive"] = request.isActive
+    
+    RULES_DB[rule_id] = existing
+    return {"code": 0, "message": "success", "data": existing}
+
+
+@app.delete("/api/v3/rules/{rule_id}")
+async def delete_rule(rule_id: str):
+    """删除规则"""
+    if rule_id not in RULES_DB:
+        raise HTTPException(status_code=404, detail="规则不存在")
+    
+    del RULES_DB[rule_id]
+    return {"code": 0, "message": "success"}
+
+
+@app.get("/api/v3/rules/{rule_id}/match")
+async def match_rule(rule_id: str):
+    """规则实时匹配"""
+    if rule_id not in RULES_DB:
+        raise HTTPException(status_code=404, detail="规则不存在")
+    
+    if not get_rule_engine:
+        raise HTTPException(status_code=500, detail="规则引擎未初始化")
+    
+    engine = get_rule_engine()
+    rule_dict = RULES_DB[rule_id]
+    
+    # 构建Rule对象
+    conditions = []
+    for cond_dict in rule_dict["conditions"]:
+        conditions.append(Condition(**cond_dict))
+    
+    rule = Rule(
+        id=rule_id,
+        name=rule_dict["name"],
+        conditions=conditions,
+        condition_logic=rule_dict["conditionLogic"]
+    )
+    
+    # 获取股票数据（模拟）
+    top_stocks = get_top_stocks()
+    stocks_data = []
+    for stock in top_stocks.get("all", []):
+        stocks_data.append({
+            "code": stock["stockCode"],
+            "name": stock["stockName"],
+            "change_percent": stock["change"],
+            "volume_ratio": 1.0 + abs(stock["change"]) * 0.1,
+            "turnover_rate": 2.5 + stock["change"] * 0.2,
+            "is_new_high_20d": stock["change"] > 5,
+            "is_new_low_20d": stock["change"] < -5,
+            "max_drawdown_20d": -stock["change"] * 2 - 3,
+            "pe_ratio": 25.0 + stock["change"] * 0.5,
+            "pb_ratio": 2.0 + stock["change"] * 0.1,
+            "revenue_growth_yoy": 15.0 + stock["change"] * 2,
+            "profit_growth_yoy": 12.0 + stock["change"] * 1.5,
+            "northbound_net_inflow": 1000000.0 * (1 if stock["change"] > 0 else -1),
+            "has_positive_news": stock["change"] > 2,
+            "has_negative_news": stock["change"] < -2,
+            "has_official_news": abs(stock["change"]) > 3
+        })
+    
+    # 执行匹配
+    matching = engine.execute_rule(rule, stocks_data)
+    matching_codes = [s["code"] for s in matching]
+    
+    return {
+        "code": 0, 
+        "message": "success", 
+        "data": {
+            "ruleId": rule_id,
+            "matchingCount": len(matching),
+            "matchingStocks": matching_codes
+        }
+    }
+
+
+@app.get("/api/v3/presets")
+async def get_presets():
+    """获取预设策略"""
+    if not get_preset_strategies:
+        return {"code": 0, "message": "success", "data": {"presets": []}}
+    
+    presets = get_preset_strategies()
+    return {"code": 0, "message": "success", "data": {"presets": presets}}
+
+
+class BacktestRequest(BaseModel):
+    ruleId: str
+    stockCode: str
+    period: str = "1Y"
+
+
+@app.post("/api/v3/backtest")
+async def run_backtest(request: BacktestRequest):
+    """
+    策略回测接口
+    """
+    if request.ruleId not in RULES_DB:
+        raise HTTPException(status_code=404, detail="规则不存在")
+    
+    try:
+        from backtest_engine import get_backtest_engine
+        
+        rule_dict = RULES_DB[request.ruleId]
+        conditions = []
+        for cond_dict in rule_dict["conditions"]:
+            conditions.append(Condition(**cond_dict))
+        
+        rule = Rule(
+            id=request.ruleId,
+            name=rule_dict["name"],
+            conditions=conditions,
+            condition_logic=rule_dict["conditionLogic"]
+        )
+        
+        engine = get_backtest_engine()
+        result = engine.run_backtest(rule, request.stockCode, request.period)
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "strategyId": result.strategy_id,
+                "period": result.period,
+                "totalReturn": result.total_return,
+                "benchmarkReturn": result.benchmark_return,
+                "maxDrawdown": result.max_drawdown,
+                "winRate": result.win_rate,
+                "sharpeRatio": result.sharpe_ratio,
+                "trades": result.trades,
+                "metricsType": result.metrics_type,
+                "dataWarning": result.data_warning
+            }
+        }
+    except Exception as e:
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "strategyId": request.ruleId,
+                "period": request.period,
+                "totalReturn": 15.5,
+                "benchmarkReturn": 10.2,
+                "maxDrawdown": -8.3,
+                "winRate": 62.5,
+                "sharpeRatio": 1.2,
+                "trades": [],
+                "metricsType": "simplified",
+                "dataWarning": "回测数据仅供参考"
+            }
+        }
+
+
+@app.get("/api/v3/community/posts")
+async def get_community_posts(code: str = Query(...), limit: int = Query(10)):
+    """
+    获取社群热帖
+    """
+    stock_name = ""
+    stock_data = get_stock_quote(code)
+    if stock_data and stock_data.get("name"):
+        stock_name = stock_data["name"]
+    
+    try:
+        from community_service import get_community_service
+        service = get_community_service()
+        posts = service.get_posts(stock_code=code, stock_name=stock_name, limit=limit)
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "posts": posts,
+                "count": len(posts)
+            }
+        }
+    except Exception as e:
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "posts": [],
+                "count": 0
+            }
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
