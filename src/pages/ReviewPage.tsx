@@ -45,7 +45,7 @@ export default function ReviewPage() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-bg-dark">
+    <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
       <Header 
         title="智能复盘" 
         showSearch={false}
@@ -69,7 +69,7 @@ export default function ReviewPage() {
         }
       />
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide pb-16">
+      <div className="flex-1 overflow-y-auto pb-20">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <div className="w-8 h-8 border-2 border-primary-light border-t-transparent rounded-full animate-spin" />

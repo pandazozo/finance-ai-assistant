@@ -46,8 +46,8 @@ export default function HomePage() {
   }, [stocks]);
 
   return (
-    <div className="h-full flex flex-col bg-bg-dark">
-      <div className="p-4 border-b border-border">
+    <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
+      <div className="flex-none p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-lg font-bold text-text-primary">今日市场</h1>
@@ -64,9 +64,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-16">
+      <div className="flex-1 overflow-y-auto pb-20">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-3">
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
             <div className="w-8 h-8 border-2 border-primary-light border-t-transparent rounded-full animate-spin" />
             <span className="text-sm text-text-secondary">加载中...</span>
           </div>
@@ -107,7 +107,7 @@ export default function HomePage() {
                 <div 
                   key={stock.code}
                   onClick={() => navigate(`/stock/${stock.code}`)}
-                  className="p-4 bg-bg-card rounded-xl border border-border cursor-pointer"
+                  className="p-4 bg-bg-card rounded-xl border border-border cursor-pointer hover:bg-bg-hover active:bg-bg-card"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-semibold text-text-primary">

@@ -41,54 +41,54 @@ export default function AnomalyPage() {
   const selectedAnomaly = anomalies.find(a => a.id === selectedAnomalyId);
 
   return (
-    <div className="h-full flex flex-col bg-bg-dark">
+    <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
       <Header title="异动情报" showSearch={false} />
 
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="flex-none">
         <AnomalyTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-hide pb-16">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-3">
-              <div className="w-8 h-8 border-2 border-primary-light border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-text-secondary">加载中...</span>
-            </div>
-          ) : (
-            <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <h2 className="text-lg font-semibold text-text-primary">实时异动</h2>
-                  <p className="text-xs text-text-secondary mt-0.5">
-                    捕捉盘面异动 · {filteredAnomalies.length}条异动
-                  </p>
-                </div>
-                <button 
-                  onClick={handleRefresh}
-                  className={`p-2 rounded-full bg-bg-card active:bg-white/10 transition-colors ${
-                    refreshing ? 'animate-spin' : ''
-                  }`}
-                >
-                  <RefreshCw size={16} className="text-text-secondary" />
-                </button>
+      <div className="flex-1 overflow-y-auto pb-20">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <div className="w-8 h-8 border-2 border-primary-light border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-text-secondary">加载中...</span>
+          </div>
+        ) : (
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">实时异动</h2>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  捕捉盘面异动 · {filteredAnomalies.length}条异动
+                </p>
               </div>
-
-              {filteredAnomalies.map((anomaly) => (
-                <AnomalyCard
-                  key={anomaly.id}
-                  data={anomaly}
-                  onClick={() => setSelectedAnomaly(anomaly.id)}
-                />
-              ))}
-
-              {filteredAnomalies.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
-                  <span className="text-4xl mb-3">📊</span>
-                  <span className="text-sm">暂无异动数据</span>
-                </div>
-              )}
+              <button 
+                onClick={handleRefresh}
+                className={`p-2 rounded-full bg-bg-card active:bg-white/10 transition-colors ${
+                  refreshing ? 'animate-spin' : ''
+                }`}
+              >
+                <RefreshCw size={16} className="text-text-secondary" />
+              </button>
             </div>
-          )}
-        </div>
+
+            {filteredAnomalies.map((anomaly) => (
+              <AnomalyCard
+                key={anomaly.id}
+                data={anomaly}
+                onClick={() => setSelectedAnomaly(anomaly.id)}
+              />
+            ))}
+
+            {filteredAnomalies.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
+                <span className="text-4xl mb-3">📊</span>
+                <span className="text-sm">暂无异动数据</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedAnomaly && (

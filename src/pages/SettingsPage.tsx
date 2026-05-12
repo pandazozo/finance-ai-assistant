@@ -73,12 +73,12 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-bg-dark">
-      <div className="p-4 border-b border-border">
+    <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
+      <div className="flex-none p-4 border-b border-border">
         <h1 className="text-lg font-bold text-text-primary">设置</h1>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto pb-20 p-4 space-y-4">
         <div className="bg-bg-card rounded-lg">
           <div className="p-4 border-b border-border">
             <h2 className="font-medium text-text-primary">风险偏好配置</h2>
