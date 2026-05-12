@@ -8,6 +8,11 @@ import akshare as ak
 from rule_engine import Rule, Condition
 
 
+class DataMissingError(Exception):
+    """数据缺失异常"""
+    pass
+
+
 class BacktestResult(BaseModel):
     strategy_id: str
     period: str

@@ -1,5 +1,6 @@
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+from pydantic import BaseModel
 import random
 
 
@@ -168,6 +169,3 @@ def get_community_service() -> CommunityService:
     if _community_service_instance is None:
         _community_service_instance = CommunityService()
     return _community_service_instance
-
-
-from pydantic import BaseModel
