@@ -10,6 +10,8 @@ import OpportunityDetailPage from '@/pages/OpportunityDetailPage';
 import AnomalyDetailPage from '@/pages/AnomalyDetailPage';
 import ProfilePage from '@/pages/ProfilePage';
 import ReviewPage from '@/pages/ReviewPage';
+import RuleEditorPage from '@/pages/RuleEditorPage';
+import BacktestResultPage from '@/pages/BacktestResultPage';
 import DisclaimerModal from '@/components/DisclaimerModal';
 
 export default function App() {
@@ -33,6 +35,8 @@ export default function App() {
               <Route path="/anomaly/:id" element={<AnomalyDetailPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/review" element={<ReviewPage />} />
+              <Route path="/rules" element={<RuleEditorPage />} />
+              <Route path="/backtest" element={<BacktestResultPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

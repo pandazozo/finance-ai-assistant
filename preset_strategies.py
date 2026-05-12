@@ -106,6 +106,32 @@ PRESET_STRATEGIES: List[Dict] = [
             }
         ],
         "condition_logic": "AND"
+    },
+    {
+        "id": "preset_north_flow",
+        "name": "北向资金增持",
+        "description": "北向资金大幅流入+技术面配合，适合跟外资",
+        "conditions": [
+            {
+                "type": ConditionType.TECHNICAL,
+                "field": "northbound_net_inflow",
+                "operator": Operator.GT,
+                "value": 10000000.0
+            },
+            {
+                "type": ConditionType.TECHNICAL,
+                "field": "change_percent",
+                "operator": Operator.GT,
+                "value": 0
+            },
+            {
+                "type": ConditionType.TECHNICAL,
+                "field": "volume_ratio",
+                "operator": Operator.GT,
+                "value": 1.2
+            }
+        ],
+        "condition_logic": "AND"
     }
 ]
 
