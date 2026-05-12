@@ -484,3 +484,25 @@ PRD确认 → 架构师 → 输出技术方案 → 方案评审 → 确认方案
 - **严重程度**：P0
 - **教训**：没有统一的UI布局规范
 - **约束改进**：新增UI/UX规范约束，必须使用统一布局模板，Code Review必须检查
+
+### BUG-004：详情面板滚动问题
+- **发现日期**：2026-05-12
+- **严重程度**：P1
+- **问题描述**：从底部升起的详情面板无法滚动
+- **根本原因**：
+  1. 滚动容器使用了`max-h-[calc(85vh-180px)]`但没有正确的iOS Safari优化
+  2. 缺少`WebkitOverflowScrolling: 'touch'`导致iOS上滚动不流畅
+- **修复方案**：
+  ```tsx
+  <div 
+    className="overflow-y-auto" 
+    style={{ 
+      maxHeight: 'calc(85vh - 160px)',
+      WebkitOverflowScrolling: 'touch',
+      overscrollBehavior: 'contain'
+    }}
+  >
+  ```
+- **约束改进**：
+  1. 所有底部升起面板必须添加iOS滚动优化
+  2. QA测试必须包含底部面板滚动测试
