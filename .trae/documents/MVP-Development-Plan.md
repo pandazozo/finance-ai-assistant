@@ -254,5 +254,50 @@ B11              F12
 
 ---
 
-**文档状态**：待确认
-**下一步**：确认后按计划执行开发
+**文档状态**：Phase 1 完成
+**完成日期**：2026-05-12
+**验收状态**：✅ 通过
+
+---
+
+## 八、Phase 1 验收记录
+
+### 8.1 功能验收
+
+| 功能 | PRD AC | 代码位置 | 验收状态 |
+|------|--------|----------|----------|
+| 自选股添加 | AC-1.1 | WatchlistPage.tsx | ✅ |
+| 自选股删除 | AC-2.1 | WatchlistPage.tsx | ✅ |
+| 涨跌幅显示 | AC-5.1 | HomePage.tsx | ✅ |
+| AI结论展示 | AC-4.1 | StockDetailPage.tsx | ✅ |
+| AI结论风险偏好 | AC-4.3 | app.py (calculate_risk_coefficient) | ✅ |
+| 免责声明 | AC-4.4 | StockDetailPage.tsx | ✅ |
+| 跳转交易 | AC-7.1 | StockDetailPage.tsx | ✅ |
+| 风险偏好配置 | AC-6.1 | SettingsPage.tsx | ✅ |
+| 异动提醒阈值 | AC-3.2 | SettingsPage.tsx | ✅ |
+
+### 8.2 技术验收
+
+| 技术项 | 规范要求 | 实现位置 | 验收状态 |
+|--------|----------|----------|----------|
+| 数据源 | AKShare | app.py | ✅ |
+| 后端框架 | FastAPI | app.py | ✅ |
+| 前端框架 | React+Vite | package.json | ✅ |
+| 状态管理 | Zustand | stores/index.ts | ✅ |
+| 存储 | localStorage | stores/index.ts | ✅ |
+
+### 8.3 部署验收
+
+| 服务 | 地址 | 验收状态 |
+|------|------|----------|
+| 前端 | https://illustrious-bonbon-069326.netlify.app | ✅ |
+| 后端 | https://finance-ai-assistant-production.up.railway.app | ✅ |
+| 数据源 | AKShare | ✅ |
+
+### 8.4 铁律规范验收
+
+| 规范 | 文档 | 验收状态 |
+|------|------|----------|
+| 代码评审规范 | code-review-iron-checklist.md | ✅ |
+| QA测试规范 | qa-iron-checklist.md | ✅ |
+| 评审-测试铁律 | Review-Test-Iron-Rules.md | ✅ |
