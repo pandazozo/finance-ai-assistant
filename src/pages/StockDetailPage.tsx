@@ -60,8 +60,8 @@ export default function StockDetailPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-bg-dark">
-      <div className="flex items-center p-4 border-b border-border">
+    <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
+      <div className="flex-none flex items-center p-4 border-b border-border">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2">
           <ArrowLeft className="text-text-primary" size={24} />
         </button>
@@ -72,7 +72,7 @@ export default function StockDetailPage() {
         <div className="w-10" />
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto pb-20 p-4 space-y-4">
         {quote && (
           <div className="bg-bg-card rounded-lg p-4">
             <div className="flex items-baseline gap-3">
@@ -161,7 +161,7 @@ export default function StockDetailPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-bg-card border-t border-border">
+      <div className="fixed bottom-14 left-0 right-0 p-4 bg-bg-dark border-t border-border safe-area-inset-bottom">
         <button
           onClick={handleJump}
           className="w-full py-3 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 flex items-center justify-center gap-2"

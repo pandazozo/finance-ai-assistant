@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Trash2, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useWatchList, useAlertConfig, StockItem } from '@/stores';
 import { api, StockQuote } from '@/services/api';
 
@@ -10,6 +11,7 @@ interface SearchResult {
 }
 
 export default function WatchlistPage() {
+  const navigate = useNavigate();
   const { stocks, addStock, removeStock } = useWatchList();
   const { threshold, enabled } = useAlertConfig();
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
@@ -74,14 +76,18 @@ export default function WatchlistPage() {
     removeStock(code);
   };
 
+  const handleStockClick = (code: string) => {
+    navigate(`/stock/${code}`);
+  };
+
   const getAlertStatus = (quote: StockQuote | undefined) => {
     if (!quote || !enabled) return null;
     return Math.abs(quote.changePercent) >= threshold;
   };
 
   return (
-    <div className="flex flex-col h-full bg-bg-dark">
-      <div className="p-4 border-b border-border">
+    <div className="flex flex-col h-full bg-bg-dark safe-area-inset">
+      <div className="flex-none p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold text-text-primary">我的自选</h1>
           <button
@@ -106,7 +112,7 @@ export default function WatchlistPage() {
               />
             </div>
             {searchResults.length > 0 && (
-              <div className="mt-2 bg-bg-card rounded-lg overflow-hidden">
+              <div className="mt-2 bg-bg-card rounded-lg overflow-hidden max-h-64 overflow-y-auto">
                 {searchResults.map((stock) => (
                   <button
                     key={stock.code}
@@ -151,7 +157,7 @@ export default function WatchlistPage() {
         )}
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto pb-16">
         {stocks.map((stock) => {
           const quote = quotes[stock.code];
           const hasAlert = getAlertStatus(quote);
@@ -159,7 +165,8 @@ export default function WatchlistPage() {
           return (
             <div
               key={stock.code}
-              className="p-4 border-b border-border relative"
+              onClick={() => handleStockClick(stock.code)}
+              className="p-4 border-b border-border cursor-pointer hover:bg-bg-hover active:bg-bg-card"
             >
               {hasAlert && (
                 <div className="absolute top-2 right-2">
@@ -187,7 +194,10 @@ export default function WatchlistPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => handleRemoveStock(stock.code)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveStock(stock.code);
+                  }}
                   className="p-2 text-text-secondary hover:text-red-500"
                 >
                   <Trash2 size={18} />
@@ -199,7 +209,7 @@ export default function WatchlistPage() {
       </div>
 
       {stocks.length > 0 && (
-        <div className="p-3 text-xs text-text-secondary text-center bg-bg-card border-t border-border">
+        <div className="flex-none p-3 text-xs text-text-secondary text-center bg-bg-card border-t border-border">
           异动提醒阈值：{threshold}% · {enabled ? '已开启' : '已关闭'}
         </div>
       )}
