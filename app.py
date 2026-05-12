@@ -174,8 +174,14 @@ def search_stocks(keyword):
             results.append(stock)
     return results[:10]
 
+class RiskPreference(BaseModel):
+    high: int = 40
+    medium: int = 35
+    low: int = 25
+
 class AIConclusionRequest(BaseModel):
     code: str
+    riskPreference: RiskPreference = None
 
 @app.get("/api/health")
 async def health_check():
@@ -226,10 +232,35 @@ async def search_stock(keyword: str = Query(None)):
     stocks = search_stocks(keyword)
     return {"code": 0, "message": "success", "data": {"stocks": stocks}}
 
+def calculate_risk_coefficient(risk_preference):
+    if not risk_preference:
+        return 1.0
+    
+    high = risk_preference.high if risk_preference.high else 40
+    low = risk_preference.low if risk_preference.low else 25
+    
+    coefficient = 1.0 + (high - low) * 0.005
+    coefficient = max(0.7, min(1.4, coefficient))
+    
+    return coefficient
+
+def map_score_to_conclusion(adjusted_score):
+    if adjusted_score >= 80:
+        return 4, '强烈推荐', adjusted_score
+    elif adjusted_score >= 65:
+        return 3, '推荐', adjusted_score
+    elif adjusted_score >= 50:
+        return 0, '中性', adjusted_score
+    elif adjusted_score >= 35:
+        return -2, '谨慎', adjusted_score
+    else:
+        return -4, '回避', adjusted_score
+
 @app.post("/api/v1/stocks/ai-conclusion")
 async def get_ai_conclusion(request: AIConclusionRequest):
     code = request.code
     clean_code = code.replace('sh', '').replace('sz', '')
+    risk_preference = request.riskPreference
     
     normalized_code = code
     if not (code.startswith('sh') or code.startswith('sz')):
@@ -241,35 +272,70 @@ async def get_ai_conclusion(request: AIConclusionRequest):
         change = round(((quote['current'] - quote['prev_close']) / quote['prev_close'] * 100), 2) if quote['prev_close'] else 0
         name = quote['name']
         
-        if change > 3:
-            level, label, score = 4, '强烈推荐', 85
-        elif change > 0:
-            level, label, score = 2, '推荐', 70
-        elif change > -3:
-            level, label, score = 0, '中性', 50
-        elif change > -6:
-            level, label, score = -2, '谨慎', 35
-        else:
-            level, label, score = -4, '回避', 20
+        risk_coefficient = calculate_risk_coefficient(risk_preference)
         
+        base_score = 50
         signals = []
-        if change > 2:
+        
+        if change > 3:
+            base_score += 35
             signals.append({"type": "技术面", "signal": "涨幅较大", "score": 15})
+        elif change > 0:
+            base_score += 20
+            signals.append({"type": "技术面", "signal": "小幅上涨", "score": 10})
+        elif change > -3:
+            base_score += 0
+        elif change > -6:
+            base_score -= 15
+            signals.append({"type": "技术面", "signal": "小幅下跌", "score": -10})
+        else:
+            base_score -= 30
+            signals.append({"type": "技术面", "signal": "跌幅较大", "score": -15})
+        
         if quote['current'] > quote['open']:
+            base_score += 10
             signals.append({"type": "技术面", "signal": "价格高于开盘", "score": 10})
+        else:
+            base_score -= 5
+        
         if quote['volume'] > 100000000:
-            signals.append({"type": "资金面", "signal": "成交量活跃", "score": 12})
+            base_score += 5
+            signals.append({"type": "资金面", "signal": "成交量活跃", "score": 8})
+        
+        market_score = abs(change * 2)
+        if change > 0:
+            base_score += int(market_score)
+        else:
+            base_score -= int(market_score)
         signals.append({"type": "市场面", "signal": f"今日变动{change:.2f}%", "score": abs(int(change * 2))})
+        
+        base_score = max(0, min(100, base_score))
+        
+        adjusted_score = round(base_score * risk_coefficient)
+        adjusted_score = max(0, min(100, adjusted_score))
+        
+        level, label, final_score = map_score_to_conclusion(adjusted_score)
+        
+        preference_label = ""
+        if risk_preference:
+            if risk_preference.high > 60:
+                preference_label = "（进取型）"
+            elif risk_preference.low > 40:
+                preference_label = "（稳健型）"
+            else:
+                preference_label = "（均衡型）"
         
         explanation = f"{name}今日{'上涨' if change > 0 else '下跌' if change < 0 else '持平'}{abs(change):.2f}%"
         if change > 0:
             explanation += "，走势偏强"
         else:
             explanation += "，需注意风险"
-            
+        
         conclusion = {
-            "level": level, "label": label, "score": score,
+            "level": level, "label": label, "score": final_score,
             "explanation": explanation,
+            "riskPreferenceLabel": preference_label,
+            "riskCoefficient": round(risk_coefficient, 2),
             "signals": signals, 
             "riskTips": "市场有风险，投资需谨慎。AI分析仅供参考，不构成投资建议。"
         }
@@ -278,6 +344,8 @@ async def get_ai_conclusion(request: AIConclusionRequest):
         conclusion = {
             "level": 0, "label": "暂无数据", "score": 50,
             "explanation": "暂时无法获取该股票数据，请稍后重试",
+            "riskPreferenceLabel": "",
+            "riskCoefficient": 1.0,
             "signals": [],
             "riskTips": "市场有风险，投资需谨慎"
         }
@@ -288,44 +356,14 @@ async def get_ai_conclusion(request: AIConclusionRequest):
     }}
 
 @app.get("/api/v1/stocks/ai-conclusion")
-async def get_ai_conclusion_get(code: str = Query(None)):
+async def get_ai_conclusion_get(code: str = Query(None), high: int = Query(40), medium: int = Query(35), low: int = Query(25)):
     if not code:
         raise HTTPException(status_code=400, detail="缺少code参数")
     
-    normalized_code = code
-    if not (code.startswith('sh') or code.startswith('sz')):
-        normalized_code = f"sh{code}" if code.startswith('6') else f"sz{code}"
+    risk_pref = RiskPreference(high=high, medium=medium, low=low)
+    request = AIConclusionRequest(code=code, riskPreference=risk_pref)
     
-    quote = get_stock_quote(normalized_code)
-    
-    if quote and quote['current'] > 0:
-        change = round(((quote['current'] - quote['prev_close']) / quote['prev_close'] * 100), 2) if quote['prev_close'] else 0
-        name = quote['name']
-        level = 2 if change > 0 else -2
-        label = '推荐' if level > 0 else '谨慎'
-        score = 70 if level > 0 else 40
-        signals = [
-            {"type": "技术面", "signal": f"今日变动{change:.2f}%", "score": abs(int(change))}
-        ]
-        conclusion = {
-            "level": level, "label": label, "score": score,
-            "explanation": f"{name}今日{'上涨' if change > 0 else '下跌'} {abs(change):.2f}%，建议{'关注' if change > 0 else '谨慎'}",
-            "signals": signals, 
-            "riskTips": "市场有风险，投资需谨慎"
-        }
-    else:
-        name = code
-        conclusion = {
-            "level": 0, "label": "暂无数据", "score": 50,
-            "explanation": "暂时无法获取该股票数据",
-            "signals": [],
-            "riskTips": "市场有风险"
-        }
-    
-    return {"code": 0, "message": "success", "data": {
-        "code": code, "name": name, "conclusion": conclusion,
-        "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }}
+    return await get_ai_conclusion(request)
 
 @app.get("/api/opportunities")
 async def get_opportunities():
