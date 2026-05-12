@@ -1,204 +1,139 @@
-import pandas as pd
-from typing import List, Dict, Optional
-from datetime import datetime, timedelta
-import logging
-from .akshare_service import ak_service
+from typing import Dict, Any
 
-logger = logging.getLogger(__name__)
+class RuleEngine:
+    def __init__(self):
+        self.factors = {
+            "change_percent": 0.25,
+            "breakthrough": 0.15,
+            "volume_ratio": 0.20,
+            "fund_flow": 0.20,
+            "trend_strength": 0.10,
+            "volatility": 0.10
+        }
+        
+        self.risk_coefficients = {
+            "high": 1.2,
+            "medium": 1.0,
+            "low": 0.8
+        }
+        
+        self.conclusion_mapping = [
+            (80, 5, "强烈推荐"),
+            (60, 3, "推荐"),
+            (40, 0, "中性"),
+            (20, -3, "谨慎"),
+            (0, -5, "回避")
+        ]
 
-class DataProcessor:
-    @staticmethod
-    def process_realtime_quotes(df: pd.DataFrame) -> List[Dict]:
-        """处理实时行情数据"""
-        if df.empty:
-            return []
+    def calculate(self, market_data: Dict[str, Any], risk_preference: Dict[str, int]) -> Dict[str, Any]:
+        scores = {}
+        signals = []
         
-        df = df[['代码', '名称', '最新价', '涨跌幅', '涨跌额', '成交量', '成交额', '最高', '最低', '今开', '昨收']].copy()
-        df.columns = ['code', 'name', 'price', 'changePercent', 'change', 'volume', 'amount', 'high', 'low', 'open', 'previousClose']
+        change_pct = abs(market_data.get("changePercent", 0))
+        if change_pct >= 5:
+            scores["change_percent"] = 100
+            signals.append({"type": "价格", "signal": f"涨跌幅{market_data.get('changePercent', 0):.2f}%", "score": 25})
+        elif change_pct >= 3:
+            scores["change_percent"] = 80
+            signals.append({"type": "价格", "signal": f"涨跌幅{market_data.get('changePercent', 0):.2f}%", "score": 20})
+        elif change_pct >= 1:
+            scores["change_percent"] = 60
+            signals.append({"type": "价格", "signal": f"涨跌幅{market_data.get('changePercent', 0):.2f}%", "score": 15})
+        else:
+            scores["change_percent"] = 40
+            signals.append({"type": "价格", "signal": f"涨跌幅{market_data.get('changePercent', 0):.2f}%", "score": 10})
         
-        df = df.dropna(subset=['price', 'code'])
-        df = df[df['price'] > 0]
-        df = df.sort_values('changePercent', ascending=False)
+        high = market_data.get("high", 0)
+        low = market_data.get("low", 0)
+        price = market_data.get("price", 0)
+        if high > 0 and price >= high * 0.98:
+            scores["breakthrough"] = 100
+            signals.append({"type": "技术面", "signal": "接近日内高点", "score": 15})
+        elif price > market_data.get("open", 0):
+            scores["breakthrough"] = 70
+            signals.append({"type": "技术面", "signal": "价格高于开盘价", "score": 10})
+        else:
+            scores["breakthrough"] = 40
+            signals.append({"type": "技术面", "signal": "价格低于开盘价", "score": 5})
         
-        return df.head(100).to_dict('records')
-
-    @staticmethod
-    def detect_price_anomalies(df: pd.DataFrame, threshold: float = 5.0) -> List[Dict]:
-        """检测价格异动"""
-        if df.empty:
-            return []
+        amount = market_data.get("amount", 0)
+        if amount > 1e9:
+            scores["volume_ratio"] = 100
+            signals.append({"type": "资金面", "signal": f"成交额{int(amount/1e8)}亿", "score": 20})
+        elif amount > 5e8:
+            scores["volume_ratio"] = 70
+            signals.append({"type": "资金面", "signal": f"成交额{int(amount/1e8)}亿", "score": 14})
+        else:
+            scores["volume_ratio"] = 40
+            signals.append({"type": "资金面", "signal": f"成交额{int(amount/1e8)}亿", "score": 8})
         
-        anomalies = []
-        for _, row in df.iterrows():
-            try:
-                change_percent = float(row.get('涨跌幅', 0))
-                if abs(change_percent) >= threshold:
-                    time_str = datetime.now().strftime("%H:%M:%S")
-                    anomalies.append({
-                        'id': f"anomaly_{row['代码']}_{int(datetime.now().timestamp())}",
-                        'stockName': row.get('名称', ''),
-                        'stockCode': row.get('代码', ''),
-                        'type': 'price',
-                        'change': change_percent,
-                        'time': time_str,
-                        'newsCount': 0,
-                        'news': [],
-                        'aiInsight': f"{row.get('名称', '')}今日{'大幅上涨' if change_percent > 0 else '大幅下跌'}，涨跌幅达{change_percent:.2f}%，建议关注后续走势。",
-                        'hasNews': False
-                    })
-            except:
-                continue
+        change = market_data.get("change", 0)
+        if change > 0:
+            scores["fund_flow"] = 80
+            signals.append({"type": "资金面", "signal": "价格上涨", "score": 16})
+        else:
+            scores["fund_flow"] = 40
+            signals.append({"type": "资金面", "signal": "价格下跌", "score": 8})
         
-        anomalies.sort(key=lambda x: abs(x['change']), reverse=True)
-        return anomalies[:20]
-
-    @staticmethod
-    def detect_fund_anomalies(df: pd.DataFrame, threshold: float = 50000000) -> List[Dict]:
-        """检测资金异动"""
-        if df.empty:
-            return []
+        if high > low:
+            price_range = high - low
+            distance_from_low = price - low
+            if distance_from_low / price_range > 0.7:
+                scores["trend_strength"] = 90
+                signals.append({"type": "技术面", "signal": "强势", "score": 9})
+            elif distance_from_low / price_range > 0.4:
+                scores["trend_strength"] = 60
+                signals.append({"type": "技术面", "signal": "中性", "score": 6})
+            else:
+                scores["trend_strength"] = 40
+                signals.append({"type": "技术面", "signal": "偏弱", "score": 4})
+        else:
+            scores["trend_strength"] = 50
+            signals.append({"type": "技术面", "signal": "震荡", "score": 5})
         
-        anomalies = []
-        for _, row in df.iterrows():
-            try:
-                net_amount = float(row.get('主力净流入', 0) or 0)
-                if abs(net_amount) >= threshold:
-                    time_str = datetime.now().strftime("%H:%M:%S")
-                    change_percent = float(row.get('涨跌幅', 0) or 0)
-                    anomalies.append({
-                        'id': f"fund_{row.get('代码', '')}_{int(datetime.now().timestamp())}",
-                        'stockName': row.get('名称', ''),
-                        'stockCode': row.get('代码', ''),
-                        'type': 'fund',
-                        'change': change_percent,
-                        'time': time_str,
-                        'newsCount': 0,
-                        'news': [],
-                        'aiInsight': f"{row.get('名称', '')}获得大额资金{'净流入' if net_amount > 0 else '净流出'}，金额约{abs(net_amount)/100000000:.2f}亿，显示机构{'看好' if net_amount > 0 else '看空'}该股。",
-                        'hasNews': False
-                    })
-            except:
-                continue
+        scores["volatility"] = 50
+        signals.append({"type": "波动性", "signal": "波动正常", "score": 5})
         
-        anomalies.sort(key=lambda x: abs(x['change']), reverse=True)
-        return anomalies[:10]
-
-    @staticmethod
-    def generate_opportunities(df: pd.DataFrame, news_list: List[Dict]) -> List[Dict]:
-        """生成投资机会"""
-        if df.empty:
-            return []
+        weighted_score = sum(scores[key] * self.factors[key] for key in self.factors)
         
-        opportunities = []
-        hot_sectors = ak_service.get_hot_sectors()
+        risk_type = "medium"
+        if risk_preference.get("high", 40) >= 50:
+            risk_type = "high"
+        elif risk_preference.get("low", 25) >= 40:
+            risk_type = "low"
         
-        if not hot_sectors.empty:
-            for idx, sector_row in hot_sectors.head(5).iterrows():
-                sector_name = sector_row.get('板块名称', '')
-                if not sector_name:
-                    continue
-                
-                sector_stocks = ak_service.get_sector_stocks(sector_name)
-                if sector_stocks.empty:
-                    continue
-                
-                stocks = []
-                for _, stock_row in sector_stocks.head(4).iterrows():
-                    try:
-                        stocks.append({
-                            'code': str(stock_row.get('代码', '')),
-                            'name': stock_row.get('名称', ''),
-                            'change': float(stock_row.get('涨跌幅', 0) or 0),
-                            'relevance': 0.9
-                        })
-                    except:
-                        continue
-                
-                if not stocks:
-                    continue
-                
-                opportunities.append({
-                    'id': f"opp_{sector_name}_{int(datetime.now().timestamp())}",
-                    'topic': sector_name,
-                    'topicDescription': f"{sector_name}板块今日表现活跃，受市场资金关注。",
-                    'heatIndex': int(abs(float(sector_row.get('涨跌幅', 0) or 0)) * 10),
-                    'score': min(5.0, 3.0 + abs(float(sector_row.get('涨跌幅', 0) or 0)) * 0.2),
-                    'stocks': stocks,
-                    'news': news_list[:3] if news_list else [],
-                    'drivers': [
-                        f"{sector_name}板块资金流入增加",
-                        "市场热点轮动至该板块",
-                        "行业政策利好预期"
-                    ],
-                    'updatedAt': '刚刚'
-                })
+        risk_coef = self.risk_coefficients[risk_type]
+        final_score = min(100, max(0, weighted_score * risk_coef))
         
-        opportunities.sort(key=lambda x: x['heatIndex'], reverse=True)
-        return opportunities[:10]
-
-    @staticmethod
-    def generate_review_report() -> Dict:
-        """生成复盘报告"""
-        indices_data = []
-        try:
-            df = ak_service.get_realtime_quotes()
-            if not df.empty:
-                index_codes = {'000001': '上证指数', '399001': '深证成指', '399006': '创业板指', '000688': '科创50'}
-                for code, name in index_codes.items():
-                    row = df[df['代码'] == code]
-                    if len(row) > 0:
-                        indices_data.append({
-                            'name': name,
-                            'value': float(row.iloc[0].get('最新价', 0)),
-                            'change': float(row.iloc[0].get('涨跌幅', 0) or 0)
-                        })
-        except Exception as e:
-            logger.error(f"获取指数数据失败: {e}")
+        level, label = 0, "中性"
+        for threshold, lvl, lbl in self.conclusion_mapping:
+            if final_score >= threshold:
+                level, label = lvl, lbl
+                break
         
-        hot_sectors_data = []
-        try:
-            hot_sectors = ak_service.get_hot_sectors()
-            if not hot_sectors.empty:
-                for _, row in hot_sectors.head(3).iterrows():
-                    sector_stocks = ak_service.get_sector_stocks(row.get('板块名称', ''))
-                    leaders = sector_stocks['名称'].head(3).tolist() if not sector_stocks.empty else []
-                    hot_sectors_data.append({
-                        'name': row.get('板块名称', ''),
-                        'change': float(row.get('涨跌幅', 0) or 0),
-                        'driver': f"{row.get('板块名称', '')}板块今日表现强势",
-                        'leaders': leaders
-                    })
-        except Exception as e:
-            logger.error(f"获取热点板块失败: {e}")
+        if change > 0:
+            explanation = f"基于当前行情分析，该股呈现{'强势' if change_pct > 3 else '温和'}上涨态势。"
+        else:
+            explanation = f"基于当前行情分析，该股呈现{'下跌' if change_pct > 3 else '小幅调整'}态势。"
         
-        limit_data = ak_service.get_limit_up_down()
+        if risk_type == "high":
+            risk_tips = "风险偏好较高，建议关注趋势延续性，控制仓位。"
+        elif risk_type == "low":
+            risk_tips = "建议关注风险，稳健操作，不宜追高。"
+        else:
+            risk_tips = "建议观望为主，等待更明确信号。"
         
         return {
-            'date': datetime.now().strftime("%Y-%m-%d"),
-            'indices': indices_data if indices_data else [
-                {'name': '上证指数', 'value': 3200.0, 'change': 0.5},
-                {'name': '深证成指', 'value': 10000.0, 'change': -0.3},
-                {'name': '创业板指', 'value': 2000.0, 'change': 1.2},
-            ],
-            'hotSectors': hot_sectors_data if hot_sectors_data else [
-                {'name': 'AI芯片', 'change': 5.2, 'driver': '英伟达业绩超预期', 'leaders': ['寒武纪', '中芯国际']},
-                {'name': '新能源汽车', 'change': 3.1, 'driver': '政策利好', 'leaders': ['宁德时代', '比亚迪']},
-            ],
-            'outlook': {
-                'opportunities': [
-                    '关注今日热点板块的持续性机会',
-                    '留意资金大幅流入的个股',
-                    '控制仓位，防范回调风险'
-                ],
-                'risks': [
-                    '高位个股注意止盈止损',
-                    '避免追涨杀跌',
-                    '关注晚间外盘表现'
-                ]
-            },
-            'portfolio': [],
-            'ztCount': limit_data.get('zt_count', 0),
-            'dtCount': limit_data.get('dt_count', 0)
+            "code": market_data.get("code", ""),
+            "name": market_data.get("name", ""),
+            "conclusion": {
+                "level": level,
+                "label": label,
+                "score": int(final_score),
+                "explanation": explanation,
+                "signals": signals,
+                "riskTips": risk_tips
+            }
         }
 
-processor = DataProcessor()
+__all__ = ["RuleEngine"]

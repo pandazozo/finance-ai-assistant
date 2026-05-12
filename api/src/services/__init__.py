@@ -1,4 +1,4 @@
-from .akshare_service import ak_service, AKShareService
-from .data_processor import processor, DataProcessor
+from . import akshare_service
+from . import data_processor
 
-__all__ = ['ak_service', 'AKShareService', 'processor', 'DataProcessor']
+__all__ = ["akshare_service", "data_processor"]

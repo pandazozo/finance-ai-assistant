@@ -1,36 +1,34 @@
-import { useAppStore } from '@/stores/useAppStore';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useDisclaimer } from '@/stores';
 import TabBar from '@/components/layout/TabBar';
 import HomePage from '@/pages/HomePage';
-import AnomalyPage from '@/pages/AnomalyPage';
-import ReviewPage from '@/pages/ReviewPage';
-import ProfilePage from '@/pages/ProfilePage';
+import WatchlistPage from '@/pages/WatchlistPage';
+import StockDetailPage from '@/pages/StockDetailPage';
+import SettingsPage from '@/pages/SettingsPage';
+import DisclaimerModal from '@/components/DisclaimerModal';
 
 export default function App() {
-  const { activeTab } = useAppStore();
-
-  const renderPage = () => {
-    switch (activeTab) {
-      case 'opportunity':
-        return <HomePage />;
-      case 'anomaly':
-        return <AnomalyPage />;
-      case 'review':
-        return <ReviewPage />;
-      case 'profile':
-        return <ProfilePage />;
-      default:
-        return <HomePage />;
-    }
-  };
+  const { confirmed, confirm } = useDisclaimer();
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-bg-dark">
-      <div className="h-full flex flex-col">
-        <div className="flex-1 overflow-hidden">
-          {renderPage()}
+    <BrowserRouter>
+      <div className="h-screen w-screen overflow-hidden bg-bg-dark">
+        {!confirmed && (
+          <DisclaimerModal onConfirm={confirm} />
+        )}
+        <div className="h-full flex flex-col">
+          <div className="flex-1 overflow-hidden">
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/watchlist" element={<WatchlistPage />} />
+              <Route path="/stock/:code" element={<StockDetailPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+          <TabBar />
         </div>
-        <TabBar />
       </div>
-    </div>
+    </BrowserRouter>
   );
 }

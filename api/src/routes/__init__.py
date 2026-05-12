@@ -1,3 +1,3 @@
-from .stocks import router as stocks_router
+from . import health, stocks
 
-__all__ = ['stocks_router']
+__all__ = ["health", "stocks"]

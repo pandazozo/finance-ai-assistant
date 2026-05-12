@@ -1,3 +1,1 @@
-from .main import app
-
-__all__ = ['app']
+# 金融AI投资助手 - API模块

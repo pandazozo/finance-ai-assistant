@@ -1,152 +1,138 @@
 import akshare as ak
-import pandas as pd
-from typing import List, Optional, Dict
+import asyncio
 from datetime import datetime
-import logging
+from typing import List, Dict, Any, Optional
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from api.src.services.data_processor import RuleEngine
 
-class AKShareService:
-    @staticmethod
-    def get_realtime_quotes() -> pd.DataFrame:
-        """获取A股实时行情"""
-        try:
-            df = ak.stock_zh_a_spot_em()
-            return df
-        except Exception as e:
-            logger.error(f"获取实时行情失败: {e}")
-            return pd.DataFrame()
+rule_engine = RuleEngine()
 
-    @staticmethod
-    def get_stock_news(stock_code: str = "") -> List[Dict]:
-        """获取个股新闻"""
-        try:
-            if stock_code:
-                df = ak.stock_news_em(symbol=stock_code)
-            else:
-                df = ak.stock_news_em(symbol="000001")
-            
-            if df is not None and len(df) > 0:
-                df = df.head(20)
-                return df.to_dict('records')
+async def get_realtime_quotes(codes: List[str]) -> List[Dict[str, Any]]:
+    loop = asyncio.get_event_loop()
+    try:
+        df = await loop.run_in_executor(None, ak.stock_zh_a_spot_em)
+        if df is None or df.empty:
             return []
-        except Exception as e:
-            logger.error(f"获取新闻失败: {e}")
+        
+        quotes = []
+        for code in codes:
+            stock = df[df['代码'] == code]
+            if not stock.empty:
+                row = stock.iloc[0]
+                prev_close = row.get('昨收', 0)
+                current = row.get('最新价', 0)
+                change = current - prev_close if prev_close else 0
+                change_pct = (change / prev_close * 100) if prev_close else 0
+                
+                quotes.append({
+                    "code": str(code),
+                    "name": str(row.get('名称', '')),
+                    "price": float(current),
+                    "change": float(change),
+                    "changePercent": float(change_pct),
+                    "volume": int(row.get('成交量', 0)),
+                    "amount": float(row.get('成交额', 0)),
+                    "high": float(row.get('最高', 0)),
+                    "low": float(row.get('最低', 0)),
+                    "open": float(row.get('今开', 0)),
+                    "prevClose": float(prev_close),
+                    "updateTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+        
+        return quotes
+    except Exception as e:
+        print(f"获取行情数据失败: {e}")
+        return []
+
+async def search_stock(keyword: str, limit: int = 10) -> List[Dict[str, str]]:
+    loop = asyncio.get_event_loop()
+    try:
+        df = await loop.run_in_executor(None, ak.stock_info_a_code_name)
+        if df is None or df.empty:
             return []
+        
+        keyword_upper = keyword.upper()
+        filtered = df[
+            df['code'].str.contains(keyword_upper, na=False) |
+            df['name'].str.contains(keyword, na=False)
+        ].head(limit)
+        
+        results = []
+        for _, row in filtered.iterrows():
+            market = "沪市" if row['code'].startswith(('6', '5')) else "深市"
+            results.append({
+                "code": str(row['code']),
+                "name": str(row['name']),
+                "market": market
+            })
+        
+        return results
+    except Exception as e:
+        print(f"搜索股票失败: {e}")
+        return []
 
-    @staticmethod
-    def get_money_flow() -> pd.DataFrame:
-        """获取资金流向"""
-        try:
-            df = ak.stock_individual_fund_flow(stock="all")
-            return df
-        except Exception as e:
-            logger.error(f"获取资金流向失败: {e}")
-            return pd.DataFrame()
-
-    @staticmethod
-    def get_sector_list() -> pd.DataFrame:
-        """获取板块列表（行业板块）"""
-        try:
-            df = ak.stock_board_industry_name_em()
-            return df
-        except Exception as e:
-            logger.error(f"获取板块列表失败: {e}")
-            return pd.DataFrame()
-
-    @staticmethod
-    def get_sector_stocks(sector_name: str) -> pd.DataFrame:
-        """获取板块成分股"""
-        try:
-            df = ak.stock_board_industry_cons_em(symbol=sector_name)
-            return df
-        except Exception as e:
-            logger.error(f"获取板块成分股失败: {e}")
-            return pd.DataFrame()
-
-    @staticmethod
-    def get_index_realtime() -> pd.DataFrame:
-        """获取指数实时行情"""
-        try:
-            indices = ["上证指数", "深证成指", "创业板指", "科创50"]
-            codes = ["000001", "399001", "399006", "000688"]
-            results = []
-            for name, code in zip(indices, codes):
-                try:
-                    df = ak.stock_zh_a_spot_em()
-                    if len(df) > 0:
-                        row = df[df['代码'] == code]
-                        if len(row) > 0:
-                            results.append({
-                                'name': name,
-                                'code': code,
-                                'price': row.iloc[0].get('最新价', 0),
-                                'change': row.iloc[0].get('涨跌额', 0),
-                                'changePercent': row.iloc[0].get('涨跌幅', 0)
-                            })
-                except:
-                    continue
-            return pd.DataFrame(results)
-        except Exception as e:
-            logger.error(f"获取指数行情失败: {e}")
-            return pd.DataFrame()
-
-    @staticmethod
-    def get_limit_up_down() -> Dict:
-        """获取涨跌停数据"""
-        try:
-            df = ak.stock_zt_pool_em(date=datetime.now().strftime("%Y%m%d"))
-            zt_count = len(df) if df is not None else 0
-            
-            df_dt = ak.stock_dt_pool_em(date=datetime.now().strftime("%Y%m%d"))
-            dt_count = len(df_dt) if df_dt is not None else 0
-            
+async def get_ai_conclusion(code: str, risk_preference: Dict[str, int]) -> Dict[str, Any]:
+    loop = asyncio.get_event_loop()
+    try:
+        df = await loop.run_in_executor(None, ak.stock_zh_a_spot_em)
+        stock = df[df['代码'] == code] if df is not None and not df.empty else None
+        
+        if stock is None or stock.empty:
             return {
-                'zt_count': zt_count,
-                'dt_count': dt_count
+                "code": code,
+                "name": "未知",
+                "conclusion": {
+                    "level": 0,
+                    "label": "中性",
+                    "score": 50,
+                    "explanation": "数据获取失败",
+                    "signals": [],
+                    "riskTips": "请稍后重试"
+                },
+                "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-        except Exception as e:
-            logger.error(f"获取涨跌停失败: {e}")
-            return {'zt_count': 0, 'dt_count': 0}
+        
+        row = stock.iloc[0]
+        prev_close = row.get('昨收', 0)
+        current = row.get('最新价', 0)
+        change_pct = ((current - prev_close) / prev_close * 100) if prev_close else 0
+        
+        market_data = {
+            "code": code,
+            "name": str(row.get('名称', '')),
+            "price": float(current),
+            "change": float(current - prev_close) if prev_close else 0,
+            "changePercent": float(change_pct),
+            "volume": int(row.get('成交量', 0)),
+            "amount": float(row.get('成交额', 0)),
+            "high": float(row.get('最高', 0)),
+            "low": float(row.get('最低', 0)),
+        }
+        
+        result = await loop.run_in_executor(
+            None,
+            rule_engine.calculate,
+            market_data,
+            risk_preference
+        )
+        
+        result["generatedAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return result
+        
+    except Exception as e:
+        print(f"生成AI结论失败: {e}")
+        return {
+            "code": code,
+            "name": "未知",
+            "conclusion": {
+                "level": 0,
+                "label": "中性",
+                "score": 50,
+                "explanation": "分析服务暂时不可用",
+                "signals": [],
+                "riskTips": "请稍后重试"
+            },
+            "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
 
-    @staticmethod
-    def search_stock(keyword: str) -> List[Dict]:
-        """搜索股票"""
-        try:
-            df = ak.stock_info_a_code_name()
-            if df is not None and len(df) > 0:
-                mask = df['name'].str.contains(keyword, na=False) | df['code'].str.contains(keyword, na=False)
-                result = df[mask].head(10)
-                return result.to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"搜索股票失败: {e}")
-            return []
-
-    @staticmethod
-    def get_hot_sectors() -> pd.DataFrame:
-        """获取热门板块"""
-        try:
-            df = ak.stock_board_industry_name_em()
-            if df is not None and len(df) > 0:
-                df = df.sort_values('涨跌幅', ascending=False).head(10)
-                return df
-            return pd.DataFrame()
-        except Exception as e:
-            logger.error(f"获取热门板块失败: {e}")
-            return pd.DataFrame()
-
-    @staticmethod
-    def get_stock_hist(stock_code: str, period: str = "daily", count: int = 5) -> pd.DataFrame:
-        """获取个股历史数据"""
-        try:
-            end_date = datetime.now().strftime("%Y%m%d")
-            start_date = (datetime.now() - pd.Timedelta(days=count*2)).strftime("%Y%m%d")
-            df = ak.stock_zh_a_hist(symbol=stock_code, period=period, start_date=start_date, end_date=end_date, adjust="qfq")
-            return df.tail(count) if df is not None else pd.DataFrame()
-        except Exception as e:
-            logger.error(f"获取历史数据失败: {e}")
-            return pd.DataFrame()
-
-ak_service = AKShareService()
+__all__ = ["get_realtime_quotes", "search_stock", "get_ai_conclusion"]
