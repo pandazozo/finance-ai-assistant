@@ -1,11 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, Star, Zap, Settings } from 'lucide-react';
+import { TrendingUp, Star, Zap, User } from 'lucide-react';
 
 const tabs = [
   { key: 'home', label: '机会', icon: TrendingUp, path: '/' },
   { key: 'anomaly', label: '异动', icon: Zap, path: '/anomaly' },
   { key: 'watchlist', label: '自选', icon: Star, path: '/watchlist' },
-  { key: 'settings', label: '设置', icon: Settings, path: '/settings' },
+  { key: 'profile', label: '我的', icon: User, path: '/profile' },
 ];
 
 export default function TabBar() {
@@ -16,7 +16,7 @@ export default function TabBar() {
     if (location.pathname === '/') return 'home';
     if (location.pathname === '/anomaly') return 'anomaly';
     if (location.pathname === '/watchlist') return 'watchlist';
-    if (location.pathname === '/settings') return 'settings';
+    if (location.pathname.startsWith('/profile')) return 'profile';
     return 'home';
   };
 
